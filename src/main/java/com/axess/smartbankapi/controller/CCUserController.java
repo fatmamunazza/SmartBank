@@ -4,7 +4,8 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.secretsmanager.AWSSecretsManager;
 import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder;
-import com.amazonaws.services.secretsmanager.model.*;
+import com.amazonaws.services.secretsmanager.model.GetSecretValueRequest;
+import com.amazonaws.services.secretsmanager.model.GetSecretValueResult;
 import com.axess.smartbankapi.config.restapi.ApiSuccessResponse;
 import com.axess.smartbankapi.constants.Constants;
 import com.axess.smartbankapi.dto.LoginDto;
@@ -34,7 +35,6 @@ import javax.crypto.spec.IvParameterSpec;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.InvalidParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.List;
@@ -63,13 +63,19 @@ public class CCUserController {
     @Value("${cloud.aws.credentials.secret-key}")
     private String secretKey;
 
+    @Value("${cloud.aws.credentials.secret-name}")
+    private String secretName;
+
+    @Value("${cloud.aws.region.static}")
+    private String region;
+
     @PostMapping("/login")
     public ResponseEntity<?> verifyLogin(@RequestBody LoginDto loginDto) throws RecordNotFoundException, InvalidAlgorithmParameterException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
 
         ApiSuccessResponse response = new ApiSuccessResponse();
+
         String secretKey = getSecret();
         SecretKey key = secretKeyService.decrypt(secretKey);
-
 
         IvParameterSpec ivParameterSp = generateKeyUtil.generateIv();
 
@@ -141,11 +147,8 @@ public class CCUserController {
 
     public String getSecret() {
 
-        String secretName = "arn:aws:secretsmanager:us-east-1:350358714376:secret:test/awssecret-YgoNqs";
-        String region = "us-east-1";
-
         BasicAWSCredentials awsCreds = new BasicAWSCredentials(accessKey, secretKey);
-        // Create a Secrets Manager client
+
         AWSSecretsManager client = AWSSecretsManagerClientBuilder.standard()
                 .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
                 .withRegion(region)
@@ -158,30 +161,10 @@ public class CCUserController {
 
         try {
             getSecretValueResult = client.getSecretValue(getSecretValueRequest);
-        } catch (DecryptionFailureException e) {
-            // Secrets Manager can't decrypt the protected secret text using the provided KMS key.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw e;
-        } catch (InternalServiceErrorException e) {
-            // An error occurred on the server side.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw e;
-        } catch (InvalidParameterException e) {
-            // You provided an invalid value for a parameter.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw e;
-        } catch (InvalidRequestException e) {
-            // You provided a parameter value that is not valid for the current state of the resource.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw e;
-        } catch (ResourceNotFoundException e) {
-            // We can't find the resource that you asked for.
-            // Deal with the exception here, and/or rethrow at your discretion.
+        } catch (Exception e) {
             throw e;
         }
 
-        // Decrypts secret using the associated KMS key.
-        // Depending on whether the secret is a string or binary, one of these fields will be populated.
         if (getSecretValueResult.getSecretString() != null) {
             secret = getSecretValueResult.getSecretString();
             secretValue = getString(secret, "mySecret");
@@ -191,7 +174,6 @@ public class CCUserController {
             secretValue = getString(secret, "mySecret");
         }
         return secretValue;
-        // Your code goes here.
     }
 
     private static String getString(String json, String path) {

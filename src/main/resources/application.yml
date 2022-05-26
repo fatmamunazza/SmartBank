@@ -56,6 +56,7 @@ cloud:
       access-key: access_key_value
       secret-key: secret_key_value
       useDefaultAwsCredentialsChain: true
+      secret-name: secret-arn
     region:
       static: us-east-1
       auto: false
